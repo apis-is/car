@@ -1,88 +1,29 @@
-var request = require('request');
-var cheerio = require('cheerio');
-var err = require('error-helper');
+var _ = require('lodash');
+var xray = require('x-ray');
 
-
-exports.is = function (options, callback) {
-
-	var queryString = {
-		nafn: options.name || '',
-		heimili: options.address || '',
-		kt: options.socialnumber || '',
-		vsknr: options.vsknr || ''
-	};
-
-	request.get({
-		url: 'http://www.rsk.is/fyrirtaekjaskra/leit',
-		qs: queryString
-	}, function (error, response, body) {
-		if (error || response.statusCode !== 200) {
-			return callback(err(502,'www.us.is refuses to respond or give back data'));
-		}
-		var $ = cheerio.load(body),
-			obj = {
-				results: []
-			},
-			car = {};
-
-		var fields = ['registryNumber', 'number', 'factoryNumber', 'type', 'subType', 'color', 'registeredAt', 'status', 'nextCheck', 'pollution', 'weight'];
-		var nothingFound = $('table tr td').html();
-
-		if (nothingFound.indexOf('Ekkert ökutæki fannst') > -1) {
-			return callback(err(404,'License plate not found'));
-		}
-
-		var obj = {
-			results: []
-		},
-			$ = cheerio.load(body);
-
-		function cleanHtml(input) {
-			var html = input.html();
-			if (!html) {
-				return '';
-			}
-			return html.replace(/<(?:.|\n)*?>/gm, '');
-		};
-
-		if ($('.resultnote').length == 0) {
-			console.log('here')
-			var tr = $('.boxbody > .nozebra tbody tr');
-			if (tr.length > 0) {
-				var name = $('.boxbody > h1').html(),
-					sn = $('.boxbody > h1').html();
-
-				obj.results.push({
-					name: name.substring(0, name.indexOf('(') - 1),
-					sn: sn.substring(sn.length - 11, sn.length - 1),
-					active: $('p.highlight').text().length === 0 ? 1 : 0,
-					address: cleanHtml(tr.find('td').eq(0))
-				});
-			}
-		} else {
-			var table = $('table tr');
-			table = table.slice(1, table.length);
-
-			table.each(function () {
-
-				var td = $(this).find('td');
-				var nameRoot = cleanHtml(td.eq(1));
-				var felagAfskrad = "(Félag afskráð)";
-
-				obj.results.push({
-					name: nameRoot.replace("\n", "").replace(felagAfskrad, "").replace(/^\s\s*/, '').replace(/\s\s*$/, ''),
-					sn: cleanHtml(td.eq(0)),
-					active: nameRoot.indexOf(felagAfskrad) > -1 ? 0 : 1,
-					address: cleanHtml(td.eq(2))
-				});
-
-			});
-		}
-
-		obj.results = obj.results.filter(function (result) {
-			return result.active
-		})
-
-		return callback(null, obj)
-	});
+exports.is = function(carPlate, cb) {
+  xray('http://www.samgongustofa.is/umferd/okutaeki/okutaekjaskra/uppfletting?vq=' + carPlate)
+    .select([{
+      $root: '.vehicleinfo ul',
+      type: 'li:nth-child(1) span',
+      subType: 'li:nth-child(1) span',
+      color: 'li:nth-child(1) span',
+      registryNumber: 'li:nth-child(2) span',
+      number: 'li:nth-child(3) span',
+      factoryNumber: 'li:nth-child(4) span',
+      registeredAt: 'li:nth-child(5) span',
+      pollution: 'li:nth-child(6) span',
+      weight: 'li:nth-child(7) span',
+      status: 'li:nth-child(8) span',
+      nextCheck: 'li:nth-child(9) span'
+    }])
+    .run(function(err, array) {
+      var cleaned = _.map(array, function(car) {
+        car.type = car.type.substring(0,car.type.indexOf('-')-1);
+        car.subType = car.subType.substring(car.subType.indexOf('-')+2,car.subType.indexOf('(')-1);
+        car.color = car.color.substring(car.color.indexOf('(')+1,car.color.indexOf(')'));
+       return car;
+      });
+      return cb(err, cleaned);
+    });
 };
