@@ -1,14 +1,12 @@
 {
   "name": "car",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "author": {
     "name": "Kristján Ingi Mikaelsson",
     "email": "kristjanmik@gmail.com"
   },
   "contributors": [
-    "Benedikt D Valdez <benedikt@kolibri.is>",
-    "@arnorhs",
-    "@hilmarp"
+    "Benedikt D Valdez <benedikt@kolibri.is>"
   ],
   "description": "A library to look up license plates of cars",
   "repository": {
